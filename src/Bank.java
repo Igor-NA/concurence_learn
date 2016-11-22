@@ -10,7 +10,9 @@ public class Bank {
     private Lock bankLock;
     private Condition sufficientFunds;
 
-    public Bank(int n, double initialBalance) {
+    private TickCounter tickCounter;
+
+    public Bank(int n, double initialBalance, TickCounter tickCounter) {
 
         accounts = new double[n];
         for(int i = 0; i < accounts.length; i++) {
@@ -20,24 +22,27 @@ public class Bank {
         bankLock = new ReentrantLock();
         sufficientFunds = bankLock.newCondition();
 
+        this.tickCounter = tickCounter;
+
     }
 
-    public void transfer(int from, int to, double amount) throws InterruptedException {
-//        bankLock.lock();
-//        try {
+    public synchronized void transfer(int from, int to, double amount) throws InterruptedException {
+        bankLock.lock();
+        try {
             while(accounts[from] < amount)
-                return;
-//                sufficientFunds.await();
+                sufficientFunds.await();
 
-            System.out.println(Thread.currentThread());
+            tickCounter.increment();
+//            System.out.println(Thread.currentThread());
             accounts[from] -= amount;
-            System.out.printf(" %10.2f from %d to %d", amount, from, to);
+//            System.out.printf(" %10.2f from %d to %d", amount, from, to);
             accounts[from] += amount;
-            System.out.printf(" Total Balance: %10.2f%n", getTotalBalance());
-//            sufficientFunds.signalAll();
-//        } finally {
-//            bankLock.unlock();
-//        }
+//            System.out.printf(" Total Balance: %10.2f%n", getTotalBalance());
+
+            sufficientFunds.signalAll();
+        } finally {
+            bankLock.unlock();
+        }
     }
 
     public double getTotalBalance() {
